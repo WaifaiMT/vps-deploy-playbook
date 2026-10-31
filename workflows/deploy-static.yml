@@ -1,0 +1,59 @@
+# Builds a static site (React, Vite, Astro) and deploys it with scripts/deploy.sh.
+# Copy to .github/workflows/deploy.yml in your app's repo.
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_HOST         server IP or hostname
+#   VPS_USER         deploy user (e.g. deploy)
+#   VPS_SSH_KEY      private key whose public half is in the deploy user's authorized_keys
+#   VPS_KNOWN_HOSTS  output of `ssh-keyscan -t ed25519 <server>`, so CI can't be tricked by a fake server
+# Repository variables:
+#   APP_NAME         folder under /var/www (e.g. my-app)
+#   HEALTH_URL       optional, e.g. https://example.com
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test --if-present
+      - run: npm run build
+
+      # Change `dist` to your build folder (`build` for Create React App, `out` for a Next.js export)
+      - name: Package the build
+        run: tar -czf release.tar.gz -C dist .
+
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Upload and deploy
+        env:
+          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key"
+          scp -i ~/.ssh/deploy_key release.tar.gz "$TARGET:/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz"
+          $SSH "$TARGET" "~/bin/deploy.sh --app '${{ vars.APP_NAME }}' --type static \
+            --archive '/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz' \
+            ${{ vars.HEALTH_URL && format('--health-url ''{0}''', vars.HEALTH_URL) || '' }} \
+            && rm -f '/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz'"
