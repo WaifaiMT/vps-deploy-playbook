@@ -53,7 +53,7 @@ jobs:
         run: |
           SSH="ssh -i ~/.ssh/deploy_key"
           scp -i ~/.ssh/deploy_key release.tar.gz "$TARGET:/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz"
-          $SSH "$TARGET" "~/bin/deploy.sh --app '${{ vars.APP_NAME }}' --type static \
+          $SSH "$TARGET" "bin/deploy.sh --app '${{ vars.APP_NAME }}' --type static \
             --archive '/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz' \
             ${{ vars.HEALTH_URL && format('--health-url ''{0}''', vars.HEALTH_URL) || '' }} \
             && rm -f '/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz'"

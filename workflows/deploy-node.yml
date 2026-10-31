@@ -59,7 +59,7 @@ jobs:
           SSH="ssh -i ~/.ssh/deploy_key"
           ARCHIVE="/tmp/${{ vars.APP_NAME }}-${{ github.sha }}.tar.gz"
           scp -i ~/.ssh/deploy_key release.tar.gz "$TARGET:$ARCHIVE"
-          $SSH "$TARGET" "~/bin/deploy.sh --app '${{ vars.APP_NAME }}' --type node \
+          $SSH "$TARGET" "bin/deploy.sh --app '${{ vars.APP_NAME }}' --type node \
             --pm2-name '${{ vars.PM2_NAME || vars.APP_NAME }}' \
             --archive '$ARCHIVE' \
             ${{ vars.HEALTH_URL && format('--health-url ''{0}''', vars.HEALTH_URL) || '' }} \
